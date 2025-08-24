@@ -142,11 +142,22 @@ def index():
     saldo = sum([t[3] if t[4]=="entrada" else -t[3] for t in transacoes])
     entradas_mes = saidas_mes = 0
     transacoes_filtradas = []
+    entradas_mes = 0
+    saidas_mes = 0
 
     for t in transacoes:
-        if t[2].startswith(filtro_mes):
-            transacoes_filtradas.append(t)
-            if t[4]=="entrada":
+        if t[2].startswith(filtro_mes):  # compara YYYY-MM
+            # Converte a data de YYYY-MM-DD para DD/MM/AAAA
+            data_formatada = datetime.strptime(t[2], "%Y-%m-%d").strftime("%d/%m/%Y")
+            transacoes_filtradas.append((
+                t[0],       # id
+                t[1],       # descricao
+                data_formatada,  # data formatada
+                t[3],       # valor
+                t[4],       # tipo
+                t[5]        # categoria
+            ))
+            if t[4] == "entrada":
                 entradas_mes += t[3]
             else:
                 saidas_mes += t[3]
