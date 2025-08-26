@@ -1,14 +1,20 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
+from werkzeug.utils import secure_filename
 import sqlite3
 from datetime import datetime
 import functools
 import hashlib  # para senha simples
 from collections import defaultdict
+import os
 
 app = Flask(__name__)
 app.secret_key = "uma_chave_secreta_qualquer"
 
+
+# Pasta onde ficam os backups
+BACKUP_FOLDER = "backups"
+os.makedirs(BACKUP_FOLDER, exist_ok=True)
 
 # ----------------------
 # Banco de dados
@@ -56,6 +62,49 @@ def login_required(view):
 
 def hash_senha(senha):
     return hashlib.sha256(senha.encode()).hexdigest()
+
+# ---- Rota para baixar o backup ----
+@app.route("/backup")
+@login_required
+def backup():
+    caminho_bd = "financeiro.db"
+    nome_arquivo = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+    caminho_backup = os.path.join(BACKUP_FOLDER, nome_arquivo)
+
+    # Copia o BD atual para pasta de backups
+    import shutil
+    shutil.copy(caminho_bd, caminho_backup)
+
+    # Retorna arquivo para download
+    return send_file(caminho_backup, as_attachment=True)
+
+# ---- Rota para restaurar um backup ----
+@app.route("/restaurar", methods=["GET", "POST"])
+@login_required
+def restaurar():
+    if request.method == "POST":
+        if "arquivo" not in request.files:
+            flash("Nenhum arquivo enviado!", "danger")
+            return redirect(url_for("restaurar"))
+
+        arquivo = request.files["arquivo"]
+        if arquivo.filename == "":
+            flash("Selecione um arquivo válido!", "danger")
+            return redirect(url_for("restaurar"))
+
+        # Salva arquivo enviado
+        nome_seguro = secure_filename(arquivo.filename)
+        caminho_upload = os.path.join(BACKUP_FOLDER, nome_seguro)
+        arquivo.save(caminho_upload)
+
+        # Substitui o BD atual pelo backup
+        import shutil
+        shutil.copy(caminho_upload, "financeiro.db")
+
+        flash("Banco de dados restaurado com sucesso!", "success")
+        return redirect(url_for("index"))
+
+    return render_template("restaurar.html")
 
 # ----------------------
 # Rotas de cadastro/login

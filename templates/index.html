@@ -136,6 +136,10 @@
             <h2>Bem-vindo, {{ session['usuario'] }}</h2>
             <a href="{{ url_for('logout') }}" class="btn btn-warning">Logout</a>
         </div>
+        <div class="d-flex gap-2 mb-3">
+            <a href="{{ url_for('backup') }}" class="btn btn-info">Fazer Backup</a>
+            <a href="{{ url_for('restaurar') }}" class="btn btn-secondary">Restaurar Backup</a>
+        </div>
 
         <div class="row mb-4">
             <div class="col-md-4">
@@ -202,16 +206,20 @@
                 </tbody>
             </table>
         </div>
-        <div class="card mt-4">
-            <h2>Evolução do Mês</h2>
-            <canvas id="financeChart"></canvas>
+        <div class="d-flex flex-wrap justify-content-between mt-4">
+            <!-- Evolução do Mês -->
+            <div class="card" style="flex: 1 1 45%; margin: 10px;">
+                <h2 class="text-center">Evolução do Mês</h2>
+                <canvas id="financeChart"></canvas>
+            </div>
+
+            <!-- Distribuição por Categoria -->
+            <div class="card" style="flex: 1 1 45%; margin: 10px;">
+                <h2 class="text-center">Distribuição por Categoria</h2>
+                <canvas id="categoriaChart"></canvas>
+            </div>
         </div>
 
-        <!-- Gráfico de pizza por categoria -->
-        <div class="card mt-4">
-            <h2>Distribuição por Categoria</h2>
-            <canvas id="categoriaChart"></canvas>
-        </div>
 
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script>
@@ -242,26 +250,26 @@
             }
             });
 
-           // --------- Gráfico de pizza apenas para entradas ----------
-const ctx2 = document.getElementById('categoriaChart').getContext('2d');
-new Chart(ctx2, {
-    type: 'pie',
-    data: {
-        labels: {{ categorias_entrada|tojson }},
-        datasets: [{
-            data: {{ valores_entrada|tojson }},
-            backgroundColor: [
-                '#4CAF50', '#2196F3', '#FFC107', '#9C27B0',
-                '#FF9800', '#009688', '#E91E63', '#F44336'
-            ]
+            // --------- Gráfico de pizza apenas para entradas ----------
+            const ctx2 = document.getElementById('categoriaChart').getContext('2d');
+            new Chart(ctx2, {
+                type: 'pie',
+                data: {
+                    labels: {{ categorias_entrada| tojson }},
+                datasets: [{
+                    data: {{ valores_entrada| tojson }},
+                backgroundColor: [
+                    '#4CAF50', '#2196F3', '#FFC107', '#9C27B0',
+                    '#FF9800', '#009688', '#E91E63', '#F44336'
+                ]
         }]
     },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: { position: 'bottom' }
-        }
-    }
+                options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
 });
 
         </script>
