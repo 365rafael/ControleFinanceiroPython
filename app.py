@@ -4,9 +4,11 @@ import sqlite3
 from datetime import datetime
 import functools
 import hashlib  # para senha simples
+from collections import defaultdict
 
 app = Flask(__name__)
 app.secret_key = "uma_chave_secreta_qualquer"
+
 
 # ----------------------
 # Banco de dados
@@ -124,43 +126,73 @@ def logout():
 @app.route("/", methods=["GET", "POST"])
 @login_required
 def index():
+    # filtro em YYYY-MM
     filtro_mes = datetime.today().strftime("%Y-%m")
     if request.method == "POST":
         filtro_usuario = request.form.get("mes")  # MM/AAAA
         try:
             mes, ano = filtro_usuario.split("/")
             filtro_mes = f"{ano}-{mes.zfill(2)}"
-        except:
+        except Exception:
             filtro_mes = datetime.today().strftime("%Y-%m")
 
+    # busca todas transações do usuário (ordenadas por data crescente)
     conn = sqlite3.connect("financeiro.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM transacoes WHERE usuario_id=? ORDER BY data ASC", (session["usuario_id"],))
+    cursor.execute(
+        "SELECT * FROM transacoes WHERE usuario_id=? ORDER BY data ASC",
+        (session["usuario_id"],)
+    )
     transacoes = cursor.fetchall()
     conn.close()
 
-    saldo = sum([t[3] if t[4]=="entrada" else -t[3] for t in transacoes])
-    entradas_mes = saidas_mes = 0
+    # saldo total (todas as transações do usuário)
+    saldo = sum([t[3] if t[4] == "entrada" else -t[3] for t in transacoes])
+
+    # filtra pelo mês e prepara lista exibida
     transacoes_filtradas = []
-    entradas_mes = 0
-    saidas_mes = 0
+    entradas_mes = 0.0
+    saidas_mes = 0.0
 
     for t in transacoes:
-        if t[2].startswith(filtro_mes):  # compara YYYY-MM
-            # Converte a data de YYYY-MM-DD para DD/MM/AAAA
+        if t[2].startswith(filtro_mes):  # data salva como YYYY-MM-DD
             data_formatada = datetime.strptime(t[2], "%Y-%m-%d").strftime("%d/%m/%Y")
             transacoes_filtradas.append((
                 t[0],       # id
                 t[1],       # descricao
-                data_formatada,  # data formatada
+                data_formatada,  # data DD/MM/AAAA
                 t[3],       # valor
-                t[4],       # tipo
-                t[5]        # categoria
+                t[4],       # tipo ('entrada'/'saida')
+                t[5]        # categoria (pode ser None)
             ))
             if t[4] == "entrada":
                 entradas_mes += t[3]
             else:
                 saidas_mes += t[3]
+
+    # -------- Gráfico de evolução diária (barras) --------
+    labels = [t[2] for t in transacoes_filtradas]  # datas (DD/MM/AAAA)
+    entradas = [t[3] if t[4] == "entrada" else 0 for t in transacoes_filtradas]
+    saidas = [t[3] if t[4] == "saida" else 0 for t in transacoes_filtradas]
+
+    # -------- Gráfico por categoria (pizza/doughnut) --------
+    # soma por categoria separando entradas e saídas do mês filtrado
+    cat_entrada = defaultdict(float)
+    cat_saida = defaultdict(float)
+
+    for t in transacoes_filtradas:
+        categoria = t[5] if (t[5] and t[5].strip()) else "Sem categoria"
+        if t[4] == "entrada":
+            cat_entrada[categoria] += float(t[3])
+        else:
+            cat_saida[categoria] += float(t[3])
+
+    # ordena por valor desc para ficar mais bonito no gráfico
+    categorias_entrada = [k for k, v in sorted(cat_entrada.items(), key=lambda x: x[1], reverse=True)]
+    valores_entrada = [v for k, v in sorted(cat_entrada.items(), key=lambda x: x[1], reverse=True)]
+
+    categorias_saida = [k for k, v in sorted(cat_saida.items(), key=lambda x: x[1], reverse=True)]
+    valores_saida = [v for k, v in sorted(cat_saida.items(), key=lambda x: x[1], reverse=True)]
 
     return render_template(
         "index.html",
@@ -168,13 +200,21 @@ def index():
         saldo=formatar(saldo),
         entradas_mes=formatar(entradas_mes),
         saidas_mes=formatar(saidas_mes),
-        filtro_mes=f"{filtro_mes[5:7]}/{filtro_mes[0:4]}"
+        filtro_mes=filtro_mes,          # YYYY-MM (para manter o filtro)
+        labels=labels,                  # evolução diária
+        entradas=entradas,
+        saidas=saidas,
+        categorias_entrada=categorias_entrada,  # pizza por categoria (entradas)
+        valores_entrada=valores_entrada,
+        categorias_saida=categorias_saida,      # pizza por categoria (saídas)
+        valores_saida=valores_saida
     )
+
 
 @app.route("/adicionar", methods=["GET", "POST"])
 @login_required
 def adicionar():
-    if request.method=="POST":
+    if request.method == "POST":
         descricao = request.form["descricao"]
         data = request.form["data"]
         valor = float(request.form["valor"])
@@ -193,13 +233,13 @@ def adicionar():
 
     return render_template("adicionar.html")
 
-@app.route("/editar/<int:id>", methods=["GET","POST"])
+@app.route("/editar/<int:id>", methods=["GET", "POST"])
 @login_required
 def editar(id):
     conn = sqlite3.connect("financeiro.db")
     cursor = conn.cursor()
 
-    if request.method=="POST":
+    if request.method == "POST":
         descricao = request.form["descricao"]
         data = request.form["data"]
         valor = float(request.form["valor"])
@@ -232,5 +272,5 @@ def excluir(id):
 # ----------------------
 # Rodar app
 # ----------------------
-if __name__=="__main__":
+if __name__ == "__main__":
     app.run(debug=True)

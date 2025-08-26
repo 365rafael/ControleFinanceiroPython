@@ -126,6 +126,8 @@
             border: none;
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 </head>
 
 <body>
@@ -200,7 +202,73 @@
                 </tbody>
             </table>
         </div>
-    </div>
+        <div class="card mt-4">
+            <h2>Evolução do Mês</h2>
+            <canvas id="financeChart"></canvas>
+        </div>
+
+        <!-- Gráfico de pizza por categoria -->
+        <div class="card mt-4">
+            <h2>Distribuição por Categoria</h2>
+            <canvas id="categoriaChart"></canvas>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+            // --------- Gráfico de barras (já existente) ----------
+            const ctx = document.getElementById('financeChart').getContext('2d');
+            const financeChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: {{ labels| tojson }},
+            datasets: [
+                {
+                    label: 'Entradas',
+                    data: {{ entradas| tojson }},
+                backgroundColor: '#4CAF50'
+                        },
+                {
+                    label: 'Saídas',
+                    data: {{ saidas| tojson }},
+                backgroundColor: '#F44336'
+                        }
+            ]
+                },
+            options: {
+                responsive: true,
+                    plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+            });
+
+           // --------- Gráfico de pizza apenas para entradas ----------
+const ctx2 = document.getElementById('categoriaChart').getContext('2d');
+new Chart(ctx2, {
+    type: 'pie',
+    data: {
+        labels: {{ categorias_entrada|tojson }},
+        datasets: [{
+            data: {{ valores_entrada|tojson }},
+            backgroundColor: [
+                '#4CAF50', '#2196F3', '#FFC107', '#9C27B0',
+                '#FF9800', '#009688', '#E91E63', '#F44336'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom' }
+        }
+    }
+});
+
+        </script>
+
+
+
+
 </body>
 
 </html>
